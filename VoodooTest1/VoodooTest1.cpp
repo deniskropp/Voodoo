@@ -54,19 +54,9 @@ public:
 
 	void SetTime( const Time &time )
 	{
-//		client.Call(method_id, (int)SET_TIME, time.GetHours(), time.GetMinutes(), time.GetSeconds());
-		client.Call(method_id, (int)SET_TIME, time);
+		client.Call(method_id, (int)SET_TIME, time.GetHours(), time.GetMinutes(), time.GetSeconds());
 	}
 };
-
-template <>
-void Voodoo::Host::put_arg(sf::Packet& packet, IClock::Time arg)
-{
-	packet << TimeType::number;
-	packet << arg.GetHours();
-	packet << arg.GetMinutes();
-	packet << arg.GetSeconds();
-}
 
 
 class IClock_Server
@@ -94,8 +84,7 @@ public:
 					delete this;
 					break;
 				case IClock::GET_TIME:
-					//ret = current + time_offset;
-					ret = IClock::Time(current + time_offset);
+					ret = current + time_offset;
 					break;
 				case IClock::SET_TIME:
 					time_offset =
