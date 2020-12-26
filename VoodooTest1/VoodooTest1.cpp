@@ -47,9 +47,9 @@ public:
 
 	Time GetTime()
 	{
-		std::any result = client.Call(method_id, (int)GET_TIME);
+		auto result = client.Call(method_id, (int)GET_TIME);
 
-		return Time(std::any_cast<sf::Int64>(result));
+		return Time(std::any_cast<sf::Int64>(result[0]));
 	}
 
 	void SetTime( const Time &time )
@@ -62,12 +62,14 @@ public:
 class IClock_Server
 {
 private:
+	Voodoo::Server& server;
 	Voodoo::ID method_id;
 	sf::Int64 time_offset;
 
 public:
 	IClock_Server(Voodoo::Server& server)
 		:
+		server(server),
 		time_offset(0)
 	{
 		method_id = server.Register([&server, this](std::vector<std::any> args)
@@ -80,7 +82,6 @@ public:
 
 				switch (method) {
 				case IClock::RELEASE:
-					server.Unregister(method_id);
 					delete this;
 					break;
 				case IClock::GET_TIME:
@@ -97,6 +98,11 @@ public:
 
 				return ret;
 			});
+	}
+
+	~IClock_Server()
+	{
+		server.Unregister(method_id);
 	}
 
 	Voodoo::ID GetMethodID() const
@@ -151,12 +157,9 @@ int main()
 	std::thread server_loop([&server]() { server.Run(); });
 
 
-	std::any result;
-	
-	result = client.Call(clock_id);
+	auto result = client.Call(clock_id);
 
-
-	auto clock = new IClock(client, std::any_cast<Voodoo::ID>(result));
+	auto clock = new IClock(client, std::any_cast<Voodoo::ID>(result[0]));
 
 	IClock::Time time = clock->GetTime();
 

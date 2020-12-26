@@ -178,7 +178,7 @@ public:
 	void Stop();
 
 private:
-	void dispatch(sf::Packet& packet, sf::Packet& ret);
+	void dispatch(sf::Packet& request, sf::Packet& reply);
 };
 
 
@@ -191,57 +191,53 @@ public:
 	Client();
 
 	template <typename... Args>
-	std::any Call(ID method_id, Args&&... args)
+	std::vector<std::any> Call(ID method_id, Args&&... args)
 	{
-		sf::Packet packet;
+		sf::Packet request;
 
-		packet << method_id;
+		request << method_id;
 
-		(put_arg(packet, std::forward<Args>(args)), ...);
+		(put_arg(request, std::forward<Args>(args)), ...);
 
-		socket.send(packet);
+		socket.send(request);
 
 
-		sf::Packet ret;
+		sf::Packet reply;
 
-		socket.receive(ret);
+		socket.receive(reply);
 
 		std::vector<std::any> result;
 
-		get_values(ret, result);
+		get_values(reply, result);
 
-		assert(result.size() == 1);
-
-		return result[0];
+		return result;
 	}
 
 
 	template <typename... Args>
-	std::any Call2(ID method_id, const void* ptr, size_t length, Args&&... args)
+	std::vector<std::any> Call2(ID method_id, const void* ptr, size_t length, Args&&... args)
 	{
-		sf::Packet packet;
+		sf::Packet request;
 
-		packet << method_id;
+		request << method_id;
 
-		(put_arg(packet, std::forward<Args>(args)), ...);
+		(put_arg(request, std::forward<Args>(args)), ...);
 
-		packet << Packet::DATA;
-		packet.append(ptr, length);
+		request << Packet::DATA;
+		request.append(ptr, length);
 
-		socket.send(packet);
+		socket.send(request);
 
 
-		sf::Packet ret;
+		sf::Packet reply;
 
-		socket.receive(ret);
+		socket.receive(reply);
 
 		std::vector<std::any> result;
 
-		get_values(ret, result);
+		get_values(reply, result);
 
-		assert(result.size() == 1);
-
-		return result[0];
+		return result;
 	}
 
 };

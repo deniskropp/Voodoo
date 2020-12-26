@@ -18,7 +18,8 @@ public:
 		FLIP_DISPLAY,
 		CREATE_IMAGE,
 		CREATE_TEXTURE,
-		CREATE_FONT
+		CREATE_FONT,
+		GET_EVENT
 	} Method;
 
 public:
@@ -78,29 +79,77 @@ public:
 
 	Voodoo::ID CreateImage(int width, int height)
 	{
-		std::any result;
+		auto result = client.Call(method_id, (int)CREATE_IMAGE, width, height);
 
-		result = client.Call(method_id, (int)CREATE_IMAGE, width, height);
-
-		return std::any_cast<Voodoo::ID>(result);
+		return std::any_cast<Voodoo::ID>(result[0]);
 	}
 
 	Voodoo::ID CreateTexture(InterfaceClient *image)
 	{
-		std::any result;
+		auto result = client.Call(method_id, (int)CREATE_TEXTURE, image->GetMethodID());
 
-		result = client.Call(method_id, (int)CREATE_TEXTURE, image->GetMethodID());
-
-		return std::any_cast<Voodoo::ID>(result);
+		return std::any_cast<Voodoo::ID>(result[0]);
 	}
 
 	Voodoo::ID CreateFont()
 	{
-		std::any result;
+		auto result = client.Call(method_id, (int)CREATE_FONT);
 
-		result = client.Call(method_id, (int)CREATE_FONT);
+		return std::any_cast<Voodoo::ID>(result[0]);
+	}
 
-		return std::any_cast<Voodoo::ID>(result);
+public:
+	class Event
+	{
+	public:
+		enum class Type {
+			None,
+			WindowClosed,
+			KeyPressed,
+			KeyReleased,
+			ButtonPressed,
+			ButtonReleased,
+			Motion,
+			Wheel
+		};
+
+		typedef sf::Keyboard::Key Key;
+		typedef sf::Mouse::Button Button;
+
+		Type   type;
+		Key    key;		// KeyPressed, KeyReleased
+		Button button;	// ButtonPressed, ButtonReleased
+		int    x;		// Motion, Wheel (horizontal)
+		int    y;		// Motion, Wheel (vertical)
+	};
+
+	bool GetEvent(Event& ev)
+	{
+		auto result = client.Call(method_id, (int)GET_EVENT);
+
+		ev.type = (Event::Type)std::any_cast<int>(result[0]);
+
+		switch (ev.type) {
+		case Event::Type::None:
+			break;
+		case Event::Type::WindowClosed:
+			break;
+		case Event::Type::KeyPressed:
+		case Event::Type::KeyReleased:
+			ev.key = (Event::Key)std::any_cast<int>(result[1]);
+			break;
+		case Event::Type::ButtonPressed:
+		case Event::Type::ButtonReleased:
+			ev.button = (Event::Button)std::any_cast<int>(result[1]);
+			break;
+		case Event::Type::Motion:
+		case Event::Type::Wheel:
+			ev.x = std::any_cast<int>(result[1]);
+			ev.y = std::any_cast<int>(result[2]);
+			break;
+		}
+
+		return ev.type != Event::Type::None;
 	}
 };
 
@@ -232,7 +281,6 @@ public:
 
 				switch (method) {
 				case IVoodooImage::RELEASE:
-					server.Unregister(method_id);
 					delete this;
 					break;
 				case IVoodooImage::WRITE:
@@ -257,6 +305,7 @@ public:
 	~IVoodooImage_Server()
 	{
 		server.UnregisterInterface(method_id);
+		server.Unregister(method_id);
 	}
 
 	Voodoo::ID GetMethodID() const
@@ -302,7 +351,6 @@ public:
 
 				switch (method) {
 				case IVoodooTexture::RELEASE:
-					server.Unregister(method_id);
 					delete this;
 					break;
 				}
@@ -316,6 +364,7 @@ public:
 	~IVoodooTexture_Server()
 	{
 		server.UnregisterInterface(method_id);
+		server.Unregister(method_id);
 	}
 
 	Voodoo::ID GetMethodID() const
@@ -349,7 +398,6 @@ public:
 
 				switch (method) {
 				case IVoodooFont::RELEASE:
-					server.Unregister(method_id);
 					delete this;
 					break;
 				case IVoodooFont::LOAD:
@@ -368,6 +416,7 @@ public:
 	~IVoodooFont_Server()
 	{
 		server.UnregisterInterface(method_id);
+		server.Unregister(method_id);
 	}
 
 	Voodoo::ID GetMethodID() const
@@ -403,7 +452,6 @@ public:
 
 				switch (method) {
 				case IVoodooGraphics::RELEASE:
-					server.Unregister(method_id);
 					delete this;
 					break;
 				case IVoodooGraphics::FILL_RECTANGLE:
@@ -442,10 +490,18 @@ public:
 					ret = font->GetMethodID();
 					break;
 					}
+				case IVoodooGraphics::GET_EVENT:
+					ret = get_event();
+					break;
 				}
 
 				return ret;
 			});
+	}
+
+	~IVoodooGraphics_Server()
+	{
+		server.Unregister(method_id);
 	}
 
 	Voodoo::ID GetMethodID() const
@@ -567,18 +623,51 @@ private:
 	{
 		window.display();
 
+		window.clear();
+	}
+
+	std::vector<std::any> get_event()
+	{
+		std::vector<std::any> ret;
+
 		sf::Event event;
-		while (window.pollEvent(event)) {
+
+		if (window.pollEvent(event)) {
 			switch (event.type) {
 			case sf::Event::Closed:
 				window.close();
+				ret.push_back((int)IVoodooGraphics::Event::Type::WindowClosed);
+				break;
+			case sf::Event::KeyPressed:
+				ret.push_back((int)IVoodooGraphics::Event::Type::KeyPressed);
+				ret.push_back((int)event.key.code);
+				break;
+			case sf::Event::KeyReleased:
+				ret.push_back((int)IVoodooGraphics::Event::Type::KeyReleased);
+				ret.push_back((int)event.key.code);
+				break;
+			case sf::Event::MouseButtonPressed:
+				ret.push_back((int)IVoodooGraphics::Event::Type::ButtonPressed);
+				ret.push_back((int)event.mouseButton.button);
+				break;
+			case sf::Event::MouseButtonReleased:
+				ret.push_back((int)IVoodooGraphics::Event::Type::ButtonReleased);
+				ret.push_back((int)event.mouseButton.button);
+				break;
+			case sf::Event::MouseMoved:
+				ret.push_back((int)IVoodooGraphics::Event::Type::Motion);
+				ret.push_back(event.mouseMove.x);
+				ret.push_back(event.mouseMove.y);
 				break;
 			default:
+				ret.push_back((int)IVoodooGraphics::Event::Type::None);
 				break;
 			}
 		}
+		else
+			ret.push_back((int)IVoodooGraphics::Event::Type::None);
 
-		window.clear();
+		return ret;
 	}
 };
 
@@ -599,12 +688,9 @@ int main()
 	std::thread server_loop([&server]() { server.Run(); });
 
 
-	std::any result;
+	auto result = client.Call(graphics_id);
 
-	result = client.Call(graphics_id);
-
-
-	auto graphics = new IVoodooGraphics(client, std::any_cast<Voodoo::ID>(result));
+	auto graphics = new IVoodooGraphics(client, std::any_cast<Voodoo::ID>(result[0]));
 
 
 	sf::Image img;
@@ -630,7 +716,10 @@ int main()
 
 	font->LoadFromFile("FreeSans.ttf");
 
-	while (true) {
+
+	bool windowClosed = false;
+
+	while (!windowClosed) {
 		graphics->FillRectangle(sf::Vector2f(100, 100), sf::Vector2f(400, 300), sf::Color(255, 0, 0, 255));
 		graphics->FillRectangle(sf::Vector2f(300, 150), sf::Vector2f(400, 300), sf::Color(0, 0, 255, 255));
 		graphics->FillRectangle(sf::Vector2f(150, 300), sf::Vector2f(400, 300), sf::Color(100, 100, 100, 255));
@@ -661,9 +750,33 @@ int main()
 		graphics->DrawText(sf::Vector2f(150, 130), font, 30, "Another Text Example", sf::Color(250, 250, 250, 255));
 
 		graphics->FlipDisplay();
+
+
+		IVoodooGraphics::Event event;
+
+		while (graphics->GetEvent(event)) {
+			switch (event.type) {
+			case IVoodooGraphics::Event::Type::WindowClosed:
+				windowClosed = true;
+				break;
+			case IVoodooGraphics::Event::Type::KeyPressed:
+				switch (event.key) {
+				case IVoodooGraphics::Event::Key::Escape:
+					windowClosed = true;
+					break;
+				default:
+					break;
+				}
+				break;
+			default:
+				break;
+			}
+		}
 	}
 	
-	
+	delete font;
+	delete texture;
+	delete image;
 	delete graphics;
 
 

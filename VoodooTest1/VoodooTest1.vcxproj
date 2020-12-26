@@ -22,6 +22,9 @@
     <ClCompile Include="..\Voodoo.cpp" />
     <ClCompile Include="VoodooTest1.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Voodoo.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

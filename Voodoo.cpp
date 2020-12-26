@@ -151,6 +151,12 @@ void Host::any_to_packet(std::any value, sf::Packet& packet)
 		packet << Packet::DATA;
 		packet.append(std::any_cast<std::pair<const void*, size_t>>(value).first, std::any_cast<std::pair<const void*, size_t>>(value).second);
 	}
+	else if (value.type() == typeid(std::vector<std::any>)) {
+		auto values = std::any_cast<std::vector<std::any>>(value);
+
+		for (auto v : values)
+			any_to_packet(v, packet);
+	}
 	else
 		throw std::runtime_error("unknown/unimplemented type");
 }
@@ -277,13 +283,13 @@ void Server::Run()
 		if (selector.wait(sf::milliseconds(50))) {
 			for (auto socket : clients) {
 				if (selector.isReady(*socket)) {
-					sf::Packet input, output;
+					sf::Packet request, reply;
 
-					socket->receive(input);
+					socket->receive(request);
 
-					dispatch(input, output);
+					dispatch(request, reply);
 
-					socket->send(output);
+					socket->send(reply);
 				}
 			}
 		}
@@ -295,18 +301,18 @@ void Server::Stop()
 	running = false;
 }
 
-void Server::dispatch(sf::Packet& packet, sf::Packet &ret)
+void Server::dispatch(sf::Packet& request, sf::Packet &reply)
 {
 	ID method_id;
 	std::vector<std::any> args;
 
-	packet >> method_id;
+	request >> method_id;
 
-	get_values(packet, args);
+	get_values(request, args);
 
 	std::any result = Handle(method_id, args);
 
-	any_to_packet(result, ret);
+	any_to_packet(result, reply);
 }
 
 
