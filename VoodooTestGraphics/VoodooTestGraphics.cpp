@@ -717,6 +717,8 @@ int main()
 	font->LoadFromFile("FreeSans.ttf");
 
 
+	std::vector<sf::Vector2f> points;
+
 	bool windowClosed = false;
 
 	while (!windowClosed) {
@@ -727,6 +729,9 @@ int main()
 		graphics->DrawSprite(sf::Vector2f(210, 210), texture);
 		graphics->DrawSprite(sf::Vector2f(400, 300), texture);
 		graphics->DrawSprite(sf::Vector2f(240, 450), texture);
+
+		for (auto p : points)
+			graphics->FillRectangle(p, sf::Vector2f(10, 10), sf::Color(100, 255, 100, 255));
 
 
 		IVoodooGraphics::Triangle triangle;
@@ -767,6 +772,9 @@ int main()
 				default:
 					break;
 				}
+				break;
+			case IVoodooGraphics::Event::Type::ButtonPressed:
+				points.push_back(sf::Vector2f((float)event.x, (float)event.y));
 				break;
 			default:
 				break;
