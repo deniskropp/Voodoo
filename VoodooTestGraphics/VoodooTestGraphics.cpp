@@ -30,9 +30,9 @@ public:
 	{
 	}
 
-	void FillRectangle( sf::Vector2f pos, sf::Vector2f size, sf::Color color )
+	void FillRectangle(sf::Vector2f pos, sf::Vector2f size, sf::Color color)
 	{
-		client.Call(method_id, (int)FILL_RECTANGLE, pos.x, pos.y, size.x, size.y, color.r, color.g, color.b, color.a );
+		client.Call(method_id, (int)FILL_RECTANGLE, pos.x, pos.y, size.x, size.y, color.r, color.g, color.b, color.a);
 	}
 
 	void DrawSprite(sf::Vector2f pos, InterfaceClient* texture)
@@ -56,16 +56,16 @@ public:
 		sf::Vector2f t3;
 	};
 
-	void TextureTriangle(const Triangle &triangle, InterfaceClient* texture)
+	void TextureTriangle(const Triangle& triangle, InterfaceClient* texture)
 	{
 		client.Call(method_id, (int)TEXTURE_TRIANGLE,
-									triangle.p1.x, triangle.p1.y,
-									triangle.t1.x, triangle.t1.y,
-									triangle.p2.x, triangle.p2.y,
-									triangle.t2.x, triangle.t2.y,
-									triangle.p3.x, triangle.p3.y,
-									triangle.t3.x, triangle.t3.y,
-									texture->GetMethodID());
+			triangle.p1.x, triangle.p1.y,
+			triangle.t1.x, triangle.t1.y,
+			triangle.p2.x, triangle.p2.y,
+			triangle.t2.x, triangle.t2.y,
+			triangle.p3.x, triangle.p3.y,
+			triangle.t3.x, triangle.t3.y,
+			texture->GetMethodID());
 	}
 
 	void DrawText(sf::Vector2f pos, InterfaceClient* font, int characterSize, std::string text, sf::Color color)
@@ -85,7 +85,7 @@ public:
 		return std::any_cast<Voodoo::ID>(result[0]);
 	}
 
-	Voodoo::ID CreateTexture(InterfaceClient *image)
+	Voodoo::ID CreateTexture(InterfaceClient* image)
 	{
 		auto result = client.Call(method_id, (int)CREATE_TEXTURE, image->GetMethodID());
 
@@ -169,9 +169,9 @@ public:
 	{
 	}
 
-	void Write(sf::IntRect rect, const void *data, int pitch)
+	void Write(sf::IntRect rect, const void* data, int pitch)
 	{
-		for (int y=0; y<rect.height; y++)
+		for (int y = 0; y < rect.height; y++)
 			client.Call2(method_id, (const char*)data + pitch * y, rect.width * 4, (int)WRITE, rect.left, rect.top + y, rect.width);
 	}
 
@@ -189,7 +189,7 @@ public:
 		fseek(f, 0, SEEK_END);
 
 		long size = ftell(f);
-		void *buf = malloc(size);
+		void* buf = malloc(size);
 
 		fseek(f, 0, SEEK_SET);
 
@@ -294,9 +294,9 @@ public:
 					break;
 				case IVoodooImage::WRITE:
 					write_image(std::any_cast<int>(args[1]),
-						        std::any_cast<int>(args[2]),
-						        std::any_cast<int>(args[3]),
-						        std::any_cast<const void*>(args[4]));
+						std::any_cast<int>(args[2]),
+						std::any_cast<int>(args[3]),
+						std::any_cast<const void*>(args[4]));
 					break;
 				case IVoodooImage::LOAD:
 					//std::cout << (const char*)std::any_cast<const void*>(args[2]) << std::endl;
@@ -308,7 +308,7 @@ public:
 				return ret;
 			});
 
-		server.RegisterInterface( method_id, this );
+		server.RegisterInterface(method_id, this);
 	}
 
 	~IVoodooImage_Server()
@@ -331,8 +331,8 @@ private:
 	void write_image(int x, int y, int width, const void* data)
 	{
 		sf::Image src;
-		
-		src.create(width, 1, (const sf::Uint8*) data);
+
+		src.create(width, 1, (const sf::Uint8*)data);
 
 		image.copy(src, x, y);
 	}
@@ -451,7 +451,7 @@ public:
 	IVoodooGraphics_Server(Voodoo::Server& server)
 		:
 		server(server),
-		window( sf::VideoMode(1024, 768), "Voodoo Graphics" )
+		window(sf::VideoMode(1024, 768), "Voodoo Graphics")
 	{
 		method_id = server.Register([&server, this](std::vector<std::any> args)
 			{
@@ -486,19 +486,19 @@ public:
 
 					ret = image->GetMethodID();
 					break;
-					}
+				}
 				case IVoodooGraphics::CREATE_TEXTURE: {
 					auto texture = new IVoodooTexture_Server(server, (IVoodooImage_Server*)server.LookupInterface(std::any_cast<Voodoo::ID>(args[1])));
 
 					ret = texture->GetMethodID();
 					break;
-					}
+				}
 				case IVoodooGraphics::CREATE_FONT: {
 					auto font = new IVoodooFont_Server(server);
 
 					ret = font->GetMethodID();
 					break;
-					}
+				}
 				case IVoodooGraphics::GET_EVENT:
 					ret = get_event();
 					break;
@@ -604,7 +604,7 @@ private:
 		sf::RenderStates states = sf::RenderStates::Default;
 
 		states.texture = &texture->GetTexture();
-		
+
 		window.draw(&vertices[0], 3, sf::Triangles, states);
 	}
 
@@ -619,9 +619,9 @@ private:
 		text.setCharacterSize(std::any_cast<int>(args[4]));
 		text.setString(std::any_cast<std::string>(args[5]));
 		text.setFillColor(sf::Color(std::any_cast<sf::Uint8>(args[6]),
-									std::any_cast<sf::Uint8>(args[7]),
-									std::any_cast<sf::Uint8>(args[8]),
-									std::any_cast<sf::Uint8>(args[9])));
+			std::any_cast<sf::Uint8>(args[7]),
+			std::any_cast<sf::Uint8>(args[8]),
+			std::any_cast<sf::Uint8>(args[9])));
 
 		//std::cout << "Drawing text: " << std::any_cast<std::string>(args[5]) << std::endl;
 
@@ -691,7 +691,7 @@ int main()
 
 
 	Voodoo::ID graphics_id = 1;	// In this case we know the ID that is used onb the server to register
-	
+
 	std::unique_ptr<std::thread> server_loop;
 
 	if (setup.test_server) {
@@ -702,7 +702,8 @@ int main()
 				return graphics->GetMethodID();
 			});
 
-		server_loop = std::make_unique<std::thread>([&server]() {
+		server_loop = std::make_unique<std::thread>([&server]()
+			{
 				server.Run();
 			});
 	}
