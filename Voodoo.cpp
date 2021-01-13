@@ -53,7 +53,7 @@ void Host::Unregister(ID id)
 	auto it = methods.find(id);
 
 	if (it == methods.end())
-		throw std::runtime_error("invalid id");
+		throw std::runtime_error(std::string("invalid method id ") + std::to_string(*id));
 
 	methods.erase(it);
 }
@@ -68,7 +68,7 @@ void Host::UnregisterInterface(ID id)
 	auto it = interfaces.find(id);
 
 	if (it == interfaces.end())
-		throw std::runtime_error("invalid id");
+		throw std::runtime_error(std::string("invalid interface id ") + std::to_string(*id));
 
 	interfaces.erase(it);
 }
@@ -78,7 +78,7 @@ void* Host::LookupInterface(ID id)
 	auto it = interfaces.find(id);
 
 	if (it == interfaces.end())
-		throw std::runtime_error("invalid id");
+		throw std::runtime_error(std::string("invalid interface id ") + std::to_string(*id));
 
 	return it->second;
 }
@@ -88,7 +88,7 @@ std::any Host::Handle(ID id, std::vector<std::any> args)
 	auto it = methods.find(id);
 
 	if (it == methods.end())
-		throw std::runtime_error("invalid id");
+		throw std::runtime_error(std::string("invalid method id ") + std::to_string(*id));
 
 	return it->second(args);
 }
