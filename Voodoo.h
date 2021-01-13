@@ -20,6 +20,8 @@ public:
 	ID();
 	ID(sf::Uint64 value);
 
+	sf::Uint64 operator *() const { return value; }
+
 	bool operator < (const ID& other) const;
 };
 
