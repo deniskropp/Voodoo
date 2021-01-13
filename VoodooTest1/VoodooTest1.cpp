@@ -1,6 +1,10 @@
 #include <iostream>
 
+#ifdef __WIN32__
 #include <windows.h>
+#else
+#include <sys/time.h>
+#endif
 
 #include "Voodoo.h"
 
@@ -113,6 +117,7 @@ public:
 private:
 	sf::Int64 get_current_time()
 	{
+#ifdef __WIN32__
 		SYSTEMTIME local;
 
 		GetLocalTime(&local);
@@ -122,6 +127,13 @@ private:
 		//std::cout << "wSecond " << local.wSecond << std::endl;
 
 		return local.wHour * 60 * 60 + local.wMinute * 60 + local.wSecond;
+#else
+		struct timeval tv;
+
+		gettimeofday(&tv, NULL);
+
+		return tv.tv_sec % (24 * 60 * 60);
+#endif
 	}
 };
 
