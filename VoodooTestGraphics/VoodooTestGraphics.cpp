@@ -3,6 +3,7 @@
 #include <SFML/Graphics.hpp>
 
 #include "Voodoo.h"
+#include "VoodooTest.h"
 
 
 
@@ -686,119 +687,137 @@ int main()
 	Voodoo::Server server;
 	Voodoo::Client client;
 
-	Voodoo::ID graphics_id = server.Register([&server](std::vector<std::any> args)
-		{
-			auto graphics = new IVoodooGraphics_Server(server);
-
-			return graphics->GetMethodID();
-		});
-
-	std::thread server_loop([&server]() { server.Run(); });
+	VoodooTest::Setup setup(server, client);
 
 
-	auto result = client.Call(graphics_id);
+	Voodoo::ID graphics_id = 1;	// In this case we know the ID that is used onb the server to register
+	
+	std::unique_ptr<std::thread> server_loop;
 
-	auto graphics = new IVoodooGraphics(client, std::any_cast<Voodoo::ID>(result[0]));
+	if (setup.test_server) {
+		graphics_id = server.Register([&server](std::vector<std::any> args)
+			{
+				auto graphics = new IVoodooGraphics_Server(server);
+
+				return graphics->GetMethodID();
+			});
+
+		server_loop = std::make_unique<std::thread>([&server]() {
+				server.Run();
+			});
+	}
 
 
-	sf::Image img;
+	if (setup.test_client) {
+		auto result = client.Call(graphics_id);
 
-	img.loadFromFile("bitmap.png");
-	img.createMaskFromColor(sf::Color::Black);
+		auto graphics = new IVoodooGraphics(client, std::any_cast<Voodoo::ID>(result[0]));
 
-	auto image = new IVoodooImage(client, graphics->CreateImage(img.getSize().x, img.getSize().y));
+
+		sf::Image img;
+
+		img.loadFromFile("bitmap.png");
+		img.createMaskFromColor(sf::Color::Black);
+
+		auto image = new IVoodooImage(client, graphics->CreateImage(img.getSize().x, img.getSize().y));
 
 #if 0
-	sf::Uint8 data[400 * 100];
+		sf::Uint8 data[400 * 100];
 
-	memset(data, 0x77, 400 * 100);
+		memset(data, 0x77, 400 * 100);
 
-	image->Write(sf::IntRect(0, 0, 100, 100), data, 400);
+		image->Write(sf::IntRect(0, 0, 100, 100), data, 400);
 #else
-	image->Write(sf::IntRect(0, 0, img.getSize().x, img.getSize().y), img.getPixelsPtr(), img.getSize().x * 4);
+		image->Write(sf::IntRect(0, 0, img.getSize().x, img.getSize().y), img.getPixelsPtr(), img.getSize().x * 4);
 #endif
 
-	auto texture = new IVoodooTexture(client, graphics->CreateTexture(image));
+		auto texture = new IVoodooTexture(client, graphics->CreateTexture(image));
 
-	auto font = new IVoodooFont(client, graphics->CreateFont());
+		auto font = new IVoodooFont(client, graphics->CreateFont());
 
-	font->LoadFromFile("FreeSans.ttf");
-
-
-	std::vector<sf::Vector2f> points;
-
-	bool windowClosed = false;
-
-	while (!windowClosed) {
-		graphics->FillRectangle(sf::Vector2f(100, 100), sf::Vector2f(400, 300), sf::Color(255, 0, 0, 255));
-		graphics->FillRectangle(sf::Vector2f(300, 150), sf::Vector2f(400, 300), sf::Color(0, 0, 255, 255));
-		graphics->FillRectangle(sf::Vector2f(150, 300), sf::Vector2f(400, 300), sf::Color(100, 100, 100, 255));
-
-		graphics->DrawSprite(sf::Vector2f(210, 210), texture);
-		graphics->DrawSprite(sf::Vector2f(400, 300), texture);
-		graphics->DrawSprite(sf::Vector2f(240, 450), texture);
-
-		for (auto p : points)
-			graphics->FillRectangle(p, sf::Vector2f(10, 10), sf::Color(100, 255, 100, 255));
+		font->LoadFromFile("FreeSans.ttf");
 
 
-		IVoodooGraphics::Triangle triangle;
+		std::vector<sf::Vector2f> points;
 
-		triangle.p1.x = 10;
-		triangle.p1.y = 10;
-		triangle.t1.x = 0;
-		triangle.t1.y = 0;
-		triangle.p2.x = 200;
-		triangle.p2.y = 10;
-		triangle.t2.x = 500;
-		triangle.t2.y = 0;
-		triangle.p3.x = 10;
-		triangle.p3.y = 200;
-		triangle.t3.x = 0;
-		triangle.t3.y = 500;
+		bool windowClosed = false;
 
-		graphics->TextureTriangle(triangle, texture);
+		while (!windowClosed) {
+			graphics->FillRectangle(sf::Vector2f(100, 100), sf::Vector2f(400, 300), sf::Color(255, 0, 0, 255));
+			graphics->FillRectangle(sf::Vector2f(300, 150), sf::Vector2f(400, 300), sf::Color(0, 0, 255, 255));
+			graphics->FillRectangle(sf::Vector2f(150, 300), sf::Vector2f(400, 300), sf::Color(100, 100, 100, 255));
 
-		graphics->DrawText(sf::Vector2f(100, 100), font, 23, "Text Example", sf::Color(230, 230, 230, 255));
-		graphics->DrawText(sf::Vector2f(150, 130), font, 30, "Another Text Example", sf::Color(250, 250, 250, 255));
+			graphics->DrawSprite(sf::Vector2f(210, 210), texture);
+			graphics->DrawSprite(sf::Vector2f(400, 300), texture);
+			graphics->DrawSprite(sf::Vector2f(240, 450), texture);
 
-		graphics->FlipDisplay();
+			for (auto p : points)
+				graphics->FillRectangle(p, sf::Vector2f(10, 10), sf::Color(100, 255, 100, 255));
 
 
-		IVoodooGraphics::Event event;
+			IVoodooGraphics::Triangle triangle;
 
-		while (graphics->GetEvent(event)) {
-			switch (event.type) {
-			case IVoodooGraphics::Event::Type::WindowClosed:
-				windowClosed = true;
-				break;
-			case IVoodooGraphics::Event::Type::KeyPressed:
-				switch (event.key) {
-				case IVoodooGraphics::Event::Key::Escape:
+			triangle.p1.x = 10;
+			triangle.p1.y = 10;
+			triangle.t1.x = 0;
+			triangle.t1.y = 0;
+			triangle.p2.x = 200;
+			triangle.p2.y = 10;
+			triangle.t2.x = 500;
+			triangle.t2.y = 0;
+			triangle.p3.x = 10;
+			triangle.p3.y = 200;
+			triangle.t3.x = 0;
+			triangle.t3.y = 500;
+
+			graphics->TextureTriangle(triangle, texture);
+
+			graphics->DrawText(sf::Vector2f(100, 100), font, 23, "Text Example", sf::Color(230, 230, 230, 255));
+			graphics->DrawText(sf::Vector2f(150, 130), font, 30, "Another Text Example", sf::Color(250, 250, 250, 255));
+
+			graphics->FlipDisplay();
+
+
+			IVoodooGraphics::Event event;
+
+			while (graphics->GetEvent(event)) {
+				switch (event.type) {
+				case IVoodooGraphics::Event::Type::WindowClosed:
 					windowClosed = true;
+					break;
+				case IVoodooGraphics::Event::Type::KeyPressed:
+					switch (event.key) {
+					case IVoodooGraphics::Event::Key::Escape:
+						windowClosed = true;
+						break;
+					default:
+						break;
+					}
+					break;
+				case IVoodooGraphics::Event::Type::ButtonPressed:
+					points.push_back(sf::Vector2f((float)event.x, (float)event.y));
 					break;
 				default:
 					break;
 				}
-				break;
-			case IVoodooGraphics::Event::Type::ButtonPressed:
-				points.push_back(sf::Vector2f((float)event.x, (float)event.y));
-				break;
-			default:
-				break;
 			}
 		}
+
+
+		delete font;
+		delete texture;
+		delete image;
+		delete graphics;
 	}
-	
-	delete font;
-	delete texture;
-	delete image;
-	delete graphics;
+	else
+		setup.wait_server();
 
 
-	server.Stop();
+	if (setup.test_server)
+		server.Stop();
 
-	server_loop.join();
+	if (server_loop)
+		server_loop->join();
 
 	return 0;
 }
