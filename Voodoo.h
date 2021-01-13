@@ -180,6 +180,8 @@ public:
 	Server();
 	~Server() noexcept(false);
 
+	void Listen(int port = 5000);
+
 	void Run();
 	void Stop();
 
@@ -196,6 +198,8 @@ private:
 public:
 	Client();
 
+	void Connect(std::string host = "127.0.0.1", int port = 5000);
+	
 	template <typename... Args>
 	std::vector<std::any> Call(ID method_id, Args&&... args)
 	{

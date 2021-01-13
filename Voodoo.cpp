@@ -258,10 +258,51 @@ void Host::get_values(sf::Packet& packet, std::vector<std::any>& values, size_t 
 
 Server::Server()
 	:
-	running(true)
+	running(false),
+	acceptor(0)
 {
-	if (listener.listen(5000) != sf::Socket::Done)
+}
+
+Server::~Server() noexcept(false)
+{
+	std::unique_lock<std::mutex> l(lock);
+
+	if (running)
+		throw std::runtime_error("server not stopped before destruction");
+
+	int localPort = listener.getLocalPort();
+
+	if (localPort) {
+		listener.close();
+
+		sf::TcpSocket* hack = new sf::TcpSocket();
+		hack->connect("127.0.0.1", localPort);
+		delete hack;
+	}
+
+	l.unlock();
+
+	if (acceptor) {
+		acceptor->join();
+
+		delete acceptor;
+	}
+
+	//??	l.lock();
+
+	for (auto socket : clients)
+		delete socket;
+}
+
+void Server::Listen(int port)
+{
+	if (acceptor)
+		throw std::runtime_error("server already listening");
+
+	if (listener.listen(port) != sf::Socket::Done)
 		throw std::runtime_error("could not listen");
+
+	running = true;
 
 	acceptor = new std::thread([this] () {
 			std::unique_lock<std::mutex> l(lock);
@@ -285,31 +326,6 @@ Server::Server()
 				}
 			}
 		});
-}
-
-Server::~Server() noexcept(false)
-{
-	std::unique_lock<std::mutex> l(lock);
-
-	if (running)
-		throw std::runtime_error("server not stopped before destruction");
-
-	listener.close();
-
-	sf::TcpSocket *hack = new sf::TcpSocket();
-	hack->connect("127.0.0.1", 5000);
-	delete hack;
-
-	l.unlock();
-
-	acceptor->join();
-
-	delete acceptor;
-
-//??	l.lock();
-
-	for (auto socket : clients)
-		delete socket;
 }
 
 void Server::Run()
@@ -365,9 +381,14 @@ void Server::dispatch(sf::Packet& request, sf::Packet &reply)
 
 Client::Client()
 {
-	sf::Socket::Status status = socket.connect("127.0.0.1", 5000);
+}
 
-	if (status != sf::Socket::Done)
+void Client::Connect(std::string host, int port)
+{
+	if (socket.getRemotePort() != 0)
+		throw std::runtime_error("client already connected");
+
+	if (socket.connect(host, port) != sf::Socket::Done)
 		throw std::runtime_error("could not connect");
 }
 
