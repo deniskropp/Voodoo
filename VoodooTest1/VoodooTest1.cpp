@@ -1,3 +1,4 @@
+#include <array>
 #include <iostream>
 
 #ifdef _WIN32
@@ -38,10 +39,12 @@ public:
 	};
 
 public:
-	typedef enum {
+	using Method = enum {
 		GET_TIME = RELEASE + 1,
-		SET_TIME
-	} Method;
+		SET_TIME,
+
+		_NUM_METHODS
+	};
 
 public:
 	IClock(Voodoo::Client& client, Voodoo::ID method_id)
@@ -57,66 +60,54 @@ public:
 		return Time(std::any_cast<sf::Int64>(result[0]));
 	}
 
-	void SetTime( const Time &time )
+	void SetTime(const Time& time)
 	{
 		client.Call(method_id, (int)SET_TIME, time.GetHours(), time.GetMinutes(), time.GetSeconds());
 	}
 };
 
 
-class IClock_Server
+class IClock_Server : public Voodoo::InterfaceServer<IClock>
 {
 private:
-	Voodoo::Server& server;
-	Voodoo::ID method_id;
 	sf::Int64 time_offset;
+
+	std::array<std::function<std::any(std::vector<std::any>)>, IClock::_NUM_METHODS> dispatch;
 
 public:
 	IClock_Server(Voodoo::Server& server)
 		:
-		server(server),
+		InterfaceServer(server),
 		time_offset(0)
 	{
-		method_id = server.Register([&server, this](std::vector<std::any> args)
-			{
-				std::any ret = 0;
+		dispatch[IClock::GET_TIME] = [this](std::vector<std::any> args) -> std::any
+		{
+			sf::Int64 current = get_current_time();
 
-				int method = std::any_cast<int>(args[0]);
+			return current + time_offset;
+		};
 
-				sf::Int64 current = get_current_time();
+		dispatch[IClock::SET_TIME] = [this](std::vector<std::any> args) -> std::any
+		{
+			sf::Int64 current = get_current_time();
 
-				switch (method) {
-				case IClock::RELEASE:
-					delete this;
-					break;
-				case IClock::GET_TIME:
-					ret = current + time_offset;
-					break;
-				case IClock::SET_TIME:
-					time_offset =
-						std::any_cast<unsigned int>(args[1]) * 60 * 60 +
-						std::any_cast<unsigned int>(args[2]) * 60 +
-						std::any_cast<unsigned int>(args[3]);
-					time_offset -= current;
-					break;
-				}
+			time_offset =
+				std::any_cast<unsigned int>(args[1]) * 60 * 60 +
+				std::any_cast<unsigned int>(args[2]) * 60 +
+				std::any_cast<unsigned int>(args[3]);
+			time_offset -= current;
 
-				return ret;
-			});
+			return 0;
+		};
 	}
 
-	~IClock_Server()
+	virtual std::function<std::any(std::vector<std::any>)> Lookup(IClock::Method method) const
 	{
-		server.Unregister(method_id);
-	}
-
-	Voodoo::ID GetMethodID() const
-	{
-		return method_id;
+		return dispatch[method];
 	}
 
 private:
-	sf::Int64 get_current_time()
+	sf::Int64 get_current_time() const
 	{
 #ifdef _WIN32
 		SYSTEMTIME local;
@@ -160,7 +151,8 @@ int main()
 				return clock->GetMethodID();
 			});
 
-		server_loop = std::make_unique<std::thread>([&server]() {
+		server_loop = std::make_unique<std::thread>([&server]()
+			{
 				server.Run();
 			});
 	}
@@ -194,6 +186,6 @@ int main()
 
 	if (server_loop)
 		server_loop->join();
-	
+
 	return 0;
 }

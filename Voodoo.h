@@ -273,7 +273,49 @@ protected:
 	~InterfaceClient();
 
 public:
-	ID GetMethodID();
+	ID GetMethodID() const;
+};
+
+
+template <typename IFace>
+class InterfaceServer
+{
+protected:
+	Server& server;
+	ID method_id;
+
+protected:
+	InterfaceServer(Server& server)
+		:
+		server(server)
+	{
+		method_id = server.Register([&server, this](std::vector<std::any> args) -> std::any
+			{
+				typename IFace::Method method = (typename IFace::Method)(std::any_cast<int>(args[0]));
+
+				if (method == IFace::RELEASE) {
+					delete this;
+					return 0;
+				}
+
+				std::function<std::any(std::vector<std::any>)> handler = Lookup(method);
+
+				return handler(args);
+			});
+	}
+
+	~InterfaceServer()
+	{
+		server.Unregister(method_id);
+	}
+
+	virtual std::function<std::any(std::vector<std::any>)> Lookup(typename IFace::Method method) const = 0;
+
+public:
+	ID GetMethodID() const
+	{
+		return method_id;
+	}
 };
 
 

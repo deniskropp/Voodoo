@@ -406,7 +406,7 @@ InterfaceClient::~InterfaceClient()
 	client.Call(method_id, (int)RELEASE);
 }
 
-ID InterfaceClient::GetMethodID()
+ID InterfaceClient::GetMethodID() const
 {
 	return method_id;
 }
