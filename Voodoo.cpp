@@ -367,15 +367,16 @@ void Server::Stop()
 void Server::dispatch(sf::Packet& request, sf::Packet &reply)
 {
 	ID method_id;
-	std::vector<std::any> args;
 
-	request >> method_id;
+	if (request >> method_id) {
+		std::vector<std::any> args;
 
-	get_values(request, args, sizeof(ID));
+		get_values(request, args, sizeof(ID));
 
-	std::any result = Handle(method_id, args);
+		std::any result = Handle(method_id, args);
 
-	any_to_packet(result, reply);
+		any_to_packet(result, reply);
+	}
 }
 
 
