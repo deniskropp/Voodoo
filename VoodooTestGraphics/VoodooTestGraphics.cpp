@@ -178,7 +178,11 @@ public:
 	{
 		FILE* f;
 
+#ifdef __WIN32__
 		if (fopen_s(&f, filename.c_str(), "r"))
+#else
+		if ((f = fopen(filename.c_str(), "r")) == NULL)
+#endif
 			throw std::runtime_error(filename);
 
 		fseek(f, 0, SEEK_END);
@@ -234,7 +238,11 @@ public:
 	{
 		FILE* f;
 
+#ifdef __WIN32__
 		if (fopen_s(&f, filename.c_str(), "r"))
+#else
+		if ((f = fopen(filename.c_str(), "r")) == NULL)
+#endif
 			throw std::runtime_error(filename);
 
 		fseek(f, 0, SEEK_END);
