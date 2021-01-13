@@ -139,58 +139,117 @@ private:
 
 
 
-static void
-print_any(std::any value, std::string prefix = "")
-{
-	if (value.type() == typeid(Voodoo::ID))
-		std::cout << prefix << "    :" << std::any_cast<Voodoo::ID>(value).value << std::endl;
-	else if (value.type() == typeid(int))
-		std::cout << prefix << "    " << std::any_cast<int>(value) << std::endl;
-	else if (value.type() == typeid(std::string))
-		std::cout << prefix << "    \"" << std::any_cast<std::string>(value) << "\"" << std::endl;
-}
-
-
 int main()
 {
+	bool test_server = false;
+	bool test_client = false;
+
+	std::cout << "Please select running" << std::endl;
+	std::cout << " 1         both client & server (127.0.0.1:5000)" << std::endl;
+	std::cout << " 2         server only (0.0.0.0:5000)" << std::endl;
+	std::cout << " 3         local client (127.0.0.1:5000)" << std::endl;
+	std::cout << " 4 <host>  remote client (host:5000)" << std::endl;
+	std::cout << std::endl;
+
+	unsigned int mode;
+	std::string host = "127.0.0.1";
+
+	std::cout << "mode> ";
+	std::cin >> mode;
+
+	switch (mode) {
+	case 1:
+		test_server = true;
+		test_client = true;
+		break;
+	case 2:
+		test_server = true;
+		break;
+	case 3:
+		test_client = true;
+		break;
+	case 4:
+		test_client = true;
+		std::cout << "host> ";
+		std::cin >> host;
+		break;
+	default:
+		throw std::runtime_error("invalid mode selected");
+	}
+
+
 	Voodoo::Server server;
 	Voodoo::Client client;
 
-	Voodoo::ID clock_id = server.Register([&server](std::vector<std::any> args)
-		{
-			for (auto arg : args)
-				print_any(arg);
+	if (test_server)
+		server.Listen();
 
-			auto clock = new IClock_Server(server);
+	if (test_client) {
+		try {
+			std::cout << "Connecting to " << host << "...";
 
-			return clock->GetMethodID();
-		});
+			client.Connect(host);
+		}
+		catch (...) {
+			std::cout << " FAILED!" << std::endl;
+			throw;
+		}
 
-	std::thread server_loop([&server]() { server.Run(); });
-
-
-	auto result = client.Call(clock_id);
-
-	auto clock = new IClock(client, std::any_cast<Voodoo::ID>(result[0]));
-
-	IClock::Time time = clock->GetTime();
-
-	std::cout << "Time: " << time.GetHours() << " hours, " << time.GetMinutes() << " minutes, " << time.GetSeconds() << " seconds" << std::endl;
+		std::cout << std::endl;
+	}
 
 
-	clock->SetTime(IClock::Time(7 * 60 * 60));
+	Voodoo::ID clock_id = 1;	// In this case we know the ID that is used onb the server to register
 
-	time = clock->GetTime();
+	std::unique_ptr<std::thread> server_loop;
 
-	std::cout << "Time: " << time.GetHours() << " hours, " << time.GetMinutes() << " minutes, " << time.GetSeconds() << " seconds" << std::endl;
+	if (test_server) {
+		clock_id = server.Register([&server](std::vector<std::any> args)
+			{
+				auto clock = new IClock_Server(server);
+
+				return clock->GetMethodID();
+			});
+
+		server_loop = std::make_unique<std::thread>([&server]() {
+				server.Run();
+			});
+	}
 
 
-	delete clock;
+	if (test_client) {
+		auto result = client.Call(clock_id);
+
+		auto clock = new IClock(client, std::any_cast<Voodoo::ID>(result[0]));
+
+		IClock::Time time = clock->GetTime();
+
+		std::cout << "Time: " << time.GetHours() << " hours, " << time.GetMinutes() << " minutes, " << time.GetSeconds() << " seconds" << std::endl;
 
 
-	server.Stop();
+		clock->SetTime(IClock::Time(7 * 60 * 60));
 
-	server_loop.join();
+		time = clock->GetTime();
+
+		std::cout << "Time: " << time.GetHours() << " hours, " << time.GetMinutes() << " minutes, " << time.GetSeconds() << " seconds" << std::endl;
+
+
+		delete clock;
+	}
+	else {
+		char c[2];
+
+		std::cout << "server running, stop by hitting return> ";
+
+		std::cin.read(c, 2);
+	}
+
+
+	if (test_server)
+		server.Stop();
+
+	if (server_loop)
+		server_loop->join();
 	
 	return 0;
 }
