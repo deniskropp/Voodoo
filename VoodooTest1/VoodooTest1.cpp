@@ -1,6 +1,6 @@
 #include <iostream>
 
-#ifdef __WIN32__
+#ifdef _WIN32
 #include <windows.h>
 #else
 #include <sys/time.h>
@@ -117,7 +117,7 @@ public:
 private:
 	sf::Int64 get_current_time()
 	{
-#ifdef __WIN32__
+#ifdef _WIN32
 		SYSTEMTIME local;
 
 		GetLocalTime(&local);

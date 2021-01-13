@@ -178,7 +178,7 @@ public:
 	{
 		FILE* f;
 
-#ifdef __WIN32__
+#ifdef _WIN32
 		if (fopen_s(&f, filename.c_str(), "r"))
 #else
 		if ((f = fopen(filename.c_str(), "r")) == NULL)
@@ -238,7 +238,7 @@ public:
 	{
 		FILE* f;
 
-#ifdef __WIN32__
+#ifdef _WIN32
 		if (fopen_s(&f, filename.c_str(), "r"))
 #else
 		if ((f = fopen(filename.c_str(), "r")) == NULL)
