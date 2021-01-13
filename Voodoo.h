@@ -2,6 +2,7 @@
 
 #include <any>
 #include <functional>
+#include <mutex>
 #include <stdexcept>
 #include <thread>
 
@@ -48,32 +49,9 @@ public:
 };
 
 
-class Host
-{
-private:
-	ID ids;
-	std::map<ID, std::function<std::any(std::vector<std::any>)>> methods;
-	std::map<ID, void*> interfaces;
-
-public:
-	Host();
-
-	ID Register(std::function<std::any(std::vector<std::any>)> handler);
-	void Unregister(ID id);
-
-	void RegisterInterface(ID id, void* _interface);
-	void UnregisterInterface(ID id);
-	void* LookupInterface(ID id);
-
-	std::any Handle(ID id, std::vector<std::any> args);
-
-protected:
-	void any_to_packet(std::any value, sf::Packet& packet);
-
-	void get_values(sf::Packet& packet, std::vector<std::any>& values);
-
+namespace {
 	template <typename T>
-	void put_arg(sf::Packet& packet, T arg);
+	static void put_arg(sf::Packet& packet, T arg);
 
 	template <>
 	void put_arg(sf::Packet& packet, ID arg)
@@ -158,12 +136,40 @@ protected:
 		packet << Packet::STRING;
 		packet << arg;
 	}
+}
+
+
+class Host
+{
+private:
+	ID ids;
+	std::map<ID, std::function<std::any(std::vector<std::any>)>> methods;
+	std::map<ID, void*> interfaces;
+
+public:
+	Host();
+
+	ID Register(std::function<std::any(std::vector<std::any>)> handler);
+	void Unregister(ID id);
+
+	void RegisterInterface(ID id, void* _interface);
+	void UnregisterInterface(ID id);
+	void* LookupInterface(ID id);
+
+	std::any Handle(ID id, std::vector<std::any> args);
+
+protected:
+	void any_to_packet(std::any value, sf::Packet& packet);
+
+	void get_values(sf::Packet& packet, std::vector<std::any>& values, size_t readStart = 0);
+
 };
 
 
 class Server : public Host
 {
 private:
+	std::mutex lock;
 	sf::TcpListener listener;
 	sf::SocketSelector selector;
 	std::thread *acceptor;
@@ -172,7 +178,7 @@ private:
 
 public:
 	Server();
-	~Server();
+	~Server() noexcept(false);
 
 	void Run();
 	void Stop();

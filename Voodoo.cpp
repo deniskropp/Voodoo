@@ -161,8 +161,10 @@ void Host::any_to_packet(std::any value, sf::Packet& packet)
 		throw std::runtime_error("unknown/unimplemented type");
 }
 
-void Host::get_values(sf::Packet& packet, std::vector<std::any>& values)
+void Host::get_values(sf::Packet& packet, std::vector<std::any>& values, size_t readStart)
 {
+	size_t readPosition = readStart;
+
 	while (!packet.endOfPacket()) {
 		int t;
 		ID id;
@@ -180,58 +182,71 @@ void Host::get_values(sf::Packet& packet, std::vector<std::any>& values)
 		const void* ptr;
 
 		packet >> t;
+		readPosition += sizeof(t);
 
 		switch (t) {
 		case Packet::ID:
 			packet >> id;
+			readPosition += sizeof(id);
 			values.push_back(id);
 			break;
 		case Packet::INT8:
 			packet >> i8;
+			readPosition += sizeof(i8);
 			values.push_back(i8);
 			break;
 		case Packet::UINT8:
 			packet >> u8;
+			readPosition += sizeof(u8);
 			values.push_back(u8);
 			break;
 		case Packet::INT16:
 			packet >> i16;
+			readPosition += sizeof(i16);
 			values.push_back(i16);
 			break;
 		case Packet::UINT16:
 			packet >> u16;
+			readPosition += sizeof(u16);
 			values.push_back(u16);
 			break;
 		case Packet::INT32:
 			packet >> i32;
+			readPosition += sizeof(i32);
 			values.push_back(i32);
 			break;
 		case Packet::UINT32:
 			packet >> u32;
+			readPosition += sizeof(u32);
 			values.push_back(u32);
 			break;
 		case Packet::INT64:
 			packet >> i64;
+			readPosition += sizeof(i64);
 			values.push_back(i64);
 			break;
 		case Packet::UINT64:
 			packet >> u64;
+			readPosition += sizeof(u64);
 			values.push_back(u64);
 			break;
 		case Packet::FLOAT32:
 			packet >> f32;
+			readPosition += sizeof(f32);
 			values.push_back(f32);
 			break;
 		case Packet::FLOAT64:
 			packet >> f64;
+			readPosition += sizeof(f64);
 			values.push_back(f64);
 			break;
 		case Packet::STRING:
 			packet >> str;
+			readPosition += str.size() + 1;
 			values.push_back(str);
 			break;
 		case Packet::DATA:
-			ptr = (const char*)packet.getData() + packet.getReadPosition();
+			ptr = (const char*)packet.getData() + readPosition;
 			values.push_back(ptr);
 			return;
 		default:
@@ -249,29 +264,49 @@ Server::Server()
 		throw std::runtime_error("could not listen");
 
 	acceptor = new std::thread([this] () {
+			std::unique_lock<std::mutex> l(lock);
+
 			while (running) {
+				l.unlock();
+
 				sf::TcpSocket *socket = new sf::TcpSocket();
 
 				if (listener.accept(*socket) == sf::Socket::Done) {
+					l.lock();
+
 					clients.push_back(socket);
 
 					selector.add(*socket);
 				}
-				else
+				else {
 					delete socket;
+
+					l.lock();
+				}
 			}
 		});
 }
 
-Server::~Server()
+Server::~Server() noexcept(false)
 {
-	assert(!running);
+	std::unique_lock<std::mutex> l(lock);
+
+	if (running)
+		throw std::runtime_error("server not stopped before destruction");
 
 	listener.close();
+
+	sf::TcpSocket *hack = new sf::TcpSocket();
+	hack->connect("127.0.0.1", 5000);
+	delete hack;
+
+	l.unlock();
 
 	acceptor->join();
 
 	delete acceptor;
+
+//??	l.lock();
 
 	for (auto socket : clients)
 		delete socket;
@@ -279,8 +314,14 @@ Server::~Server()
 
 void Server::Run()
 {
+	std::unique_lock<std::mutex> l(lock);
+
 	while (running) {
+		l.unlock();
+
 		if (selector.wait(sf::milliseconds(50))) {
+			l.lock();
+
 			for (auto socket : clients) {
 				if (selector.isReady(*socket)) {
 					sf::Packet request, reply;
@@ -292,12 +333,18 @@ void Server::Run()
 					socket->send(reply);
 				}
 			}
+
+			l.unlock();
 		}
+
+		l.lock();
 	}
 }
 
 void Server::Stop()
 {
+	std::unique_lock<std::mutex> l(lock);
+
 	running = false;
 }
 
@@ -308,7 +355,7 @@ void Server::dispatch(sf::Packet& request, sf::Packet &reply)
 
 	request >> method_id;
 
-	get_values(request, args);
+	get_values(request, args, sizeof(ID));
 
 	std::any result = Handle(method_id, args);
 
