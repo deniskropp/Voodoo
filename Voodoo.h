@@ -153,6 +153,8 @@ private:
 public:
 	Host();
 
+	ID MakeID();
+
 	ID Register(std::function<std::any(std::vector<std::any>)> handler);
 	void Unregister(ID id);
 
@@ -179,6 +181,10 @@ private:
 	std::thread *acceptor;
 	std::vector<sf::TcpSocket*> clients;
 	bool running;
+	static thread_local sf::TcpSocket* current_client;
+
+	typedef std::function<void(void)> CleanupHandler;
+	std::map<sf::TcpSocket*, std::map<ID,CleanupHandler>> cleanups;
 
 public:
 	Server();
@@ -188,6 +194,12 @@ public:
 
 	void Run();
 	void Stop();
+
+	void PushCleanup(ID cleanup_id, CleanupHandler handler);
+	void RemoveCleanup(ID cleanup_id);
+
+private:
+	void cleanup(sf::TcpSocket* socket);
 
 private:
 	void dispatch(sf::Packet& request, sf::Packet& reply);
@@ -294,6 +306,7 @@ protected:
 				typename IFace::Method method = (typename IFace::Method)(std::any_cast<int>(args[0]));
 
 				if (method == IFace::RELEASE) {
+					server.RemoveCleanup(method_id);
 					delete this;
 					return 0;
 				}
@@ -302,10 +315,17 @@ protected:
 
 				return handler(args);
 			});
+
+		server.RegisterInterface(method_id, this);
+
+		server.PushCleanup(method_id, [this]() {
+				delete this;
+			});
 	}
 
 	~InterfaceServer()
 	{
+		server.UnregisterInterface(method_id);
 		server.Unregister(method_id);
 	}
 

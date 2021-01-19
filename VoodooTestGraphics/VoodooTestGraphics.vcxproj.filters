@@ -26,5 +26,8 @@
     <ClInclude Include="..\Voodoo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\VoodooTest.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

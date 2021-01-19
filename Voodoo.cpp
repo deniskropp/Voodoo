@@ -36,12 +36,19 @@ Host::Host()
 {
 }
 
-ID Host::Register(std::function<std::any(std::vector<std::any>)> handler)
+ID Host::MakeID()
 {
-	ID id( ++ids.value );
+	ID id(++ids.value);
 
 	if (id.value == 0)
 		throw std::runtime_error("out of id space");
+
+	return id;
+}
+
+ID Host::Register(std::function<std::any(std::vector<std::any>)> handler)
+{
+	ID id = MakeID();
 
 	methods[id] = handler;
 
@@ -256,6 +263,8 @@ void Host::get_values(sf::Packet& packet, std::vector<std::any>& values, size_t 
 }
 
 
+thread_local sf::TcpSocket* Server::current_client;
+
 Server::Server()
 	:
 	running(false),
@@ -338,14 +347,25 @@ void Server::Run()
 		if (selector.wait(sf::milliseconds(50))) {
 			l.lock();
 
-			for (auto socket : clients) {
+			for (auto it = clients.begin(); it != clients.end(); it++) {
+				auto socket = *it;
+
 				if (selector.isReady(*socket)) {
 					sf::Packet request, reply;
 
-					socket->receive(request);
+					if (socket->receive(request) != sf::Socket::Done) {
+						cleanup(socket);
+
+						clients.erase(it);
+						break;
+					}
+
+					current_client = socket;
 
 					dispatch(request, reply);
 
+					current_client = NULL;
+					
 					socket->send(reply);
 				}
 			}
@@ -362,6 +382,34 @@ void Server::Stop()
 	std::unique_lock<std::mutex> l(lock);
 
 	running = false;
+}
+
+void Server::PushCleanup(Voodoo::ID cleanup_id, CleanupHandler handler)
+{
+	if (!current_client)
+		throw std::runtime_error("no current client");
+
+	cleanups[current_client].insert(std::make_pair(cleanup_id, handler));
+}
+
+void Server::RemoveCleanup(Voodoo::ID cleanup_id)
+{
+	if (!current_client)
+		throw std::runtime_error("no current client");
+
+	cleanups[current_client].erase(cleanup_id);
+}
+
+void Server::cleanup(sf::TcpSocket* socket)
+{
+	auto it = cleanups.find(socket);
+
+	if (it != cleanups.end()) {
+		for (auto it2 = it->second.rbegin(); it2 != it->second.rend(); it2++)
+			it2->second();
+
+		cleanups.erase(it);
+	}
 }
 
 void Server::dispatch(sf::Packet& request, sf::Packet &reply)

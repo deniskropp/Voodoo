@@ -7,6 +7,36 @@
 #include "VoodooTest.h"
 
 
+class Member
+{
+public:
+	virtual void PutLine(std::string text) = 0;
+};
+
+class Room
+{
+private:
+	std::set<Member*> members;
+
+public:
+	void Enter(Member* member)
+	{
+		members.insert(member);
+	}
+
+	void Leave(Member* member)
+	{
+		members.erase(member);
+	}
+
+	void Write(const std::string& text)
+	{
+		for (auto m : members)
+			m->PutLine(text);
+	}
+};
+
+
 class IMsg : public Voodoo::InterfaceClient
 {
 public:
@@ -40,31 +70,6 @@ public:
 };
 
 
-class Member
-{
-public:
-	virtual void PutLine(std::string text) = 0;
-};
-
-class Room
-{
-private:
-	std::set<Member*> members;
-
-public:
-	void Enter(Member* member)
-	{
-		members.insert(member);
-	}
-
-	void Write(const std::string& text)
-	{
-		for (auto m : members)
-			m->PutLine(text);
-	}
-};
-
-
 class IMsg_Server : public Voodoo::InterfaceServer<IMsg>, public Member
 {
 private:
@@ -73,17 +78,13 @@ private:
 	std::queue<std::string> messages;
 
 public:
-	virtual void PutLine(std::string text)
-	{
-		messages.push(text);
-	}
-
-public:
 	IMsg_Server(Voodoo::Server& server, Room &room)
 		:
 		InterfaceServer(server),
 		room(room)
 	{
+		room.Enter(this);
+
 		dispatch[IMsg::RECV_MSG] = [this](std::vector<std::any> args) -> std::any
 		{
 			if (messages.empty())
@@ -104,9 +105,20 @@ public:
 		};
 	}
 
+	virtual ~IMsg_Server()
+	{
+		room.Leave(this);
+	}
+
 	virtual std::function<std::any(std::vector<std::any>)> Lookup(IMsg::Method method) const
 	{
 		return dispatch[method];
+	}
+
+public:
+	virtual void PutLine(std::string text)
+	{
+		messages.push(text);
 	}
 };
 
@@ -122,7 +134,7 @@ int main()
 	VoodooTest::Setup setup(server, client);
 
 
-	Voodoo::ID msg_id = 1;	// In this case we know the ID that is used onb the server to register
+	Voodoo::ID msg_id = 1;	// In this case we know the ID that is used on the server to register
 
 	std::unique_ptr<std::thread> server_loop;
 
@@ -130,8 +142,6 @@ int main()
 		msg_id = server.Register([&server,&room](std::vector<std::any> args)
 			{
 				auto msg = new IMsg_Server(server, room);
-
-				room.Enter(msg);
 
 				return msg->GetMethodID();
 			});

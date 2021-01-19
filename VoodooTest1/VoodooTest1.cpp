@@ -40,7 +40,9 @@ public:
 
 public:
 	using Method = enum {
-		GET_TIME = RELEASE + 1,
+		RELEASE,
+
+		GET_TIME,
 		SET_TIME,
 
 		_NUM_METHODS
@@ -139,7 +141,7 @@ int main()
 	VoodooTest::Setup setup(server, client);
 
 
-	Voodoo::ID clock_id = 1;	// In this case we know the ID that is used onb the server to register
+	Voodoo::ID clock_id = 1;	// In this case we know the ID that is used on the server to register
 
 	std::unique_ptr<std::thread> server_loop;
 

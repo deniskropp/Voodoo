@@ -1,3 +1,4 @@
+#include <array>
 #include <iostream>
 
 #include <SFML/Graphics.hpp>
@@ -10,8 +11,10 @@
 class IVoodooGraphics : public Voodoo::InterfaceClient
 {
 public:
-	typedef enum {
-		FILL_RECTANGLE = RELEASE + 1,
+	using Method = enum {
+		RELEASE,
+
+		FILL_RECTANGLE,
 		DRAW_SPRITE,
 		DRAW_SPRITE_SCALED,
 		TEXTURE_TRIANGLE,
@@ -20,8 +23,10 @@ public:
 		CREATE_IMAGE,
 		CREATE_TEXTURE,
 		CREATE_FONT,
-		GET_EVENT
-	} Method;
+		GET_EVENT,
+
+		_NUM_METHODS
+	};
 
 public:
 	IVoodooGraphics(Voodoo::Client& client, Voodoo::ID method_id)
@@ -157,10 +162,14 @@ public:
 class IVoodooImage : public Voodoo::InterfaceClient
 {
 public:
-	typedef enum {
-		WRITE = RELEASE + 1,
-		LOAD
-	} Method;
+	using Method = enum {
+		RELEASE,
+
+		WRITE,
+		LOAD,
+
+		_NUM_METHODS
+	};
 
 public:
 	IVoodooImage(Voodoo::Client& client, Voodoo::ID method_id)
@@ -209,9 +218,11 @@ public:
 class IVoodooTexture : public Voodoo::InterfaceClient
 {
 public:
-	typedef enum {
-		DUMMY = RELEASE + 1
-	} Method;
+	using Method = enum {
+		RELEASE,
+
+		_NUM_METHODS
+	};
 
 public:
 	IVoodooTexture(Voodoo::Client& client, Voodoo::ID method_id)
@@ -224,9 +235,13 @@ public:
 class IVoodooFont : public Voodoo::InterfaceClient
 {
 public:
-	typedef enum {
-		LOAD = RELEASE + 1
-	} Method;
+	using Method = enum {
+		RELEASE,
+
+		LOAD,
+
+		_NUM_METHODS
+	};
 
 public:
 	IVoodooFont(Voodoo::Client& client, Voodoo::ID method_id)
@@ -268,58 +283,42 @@ public:
 
 
 
-class IVoodooImage_Server
+class IVoodooImage_Server : public Voodoo::InterfaceServer<IVoodooImage>
 {
 private:
-	Voodoo::Server& server;
-	Voodoo::ID method_id;
+	std::array<std::function<std::any(std::vector<std::any>)>, IVoodooImage::_NUM_METHODS> dispatch;
 	sf::Image image;
 
 public:
 	IVoodooImage_Server(Voodoo::Server& server, int width, int height)
 		:
-		server(server)
+		InterfaceServer(server)
 	{
 		image.create(width, height);
 
-		method_id = server.Register([&server, this](std::vector<std::any> args)
-			{
-				std::any ret = 0;
-
-				int method = std::any_cast<int>(args[0]);
-
-				switch (method) {
-				case IVoodooImage::RELEASE:
-					delete this;
-					break;
-				case IVoodooImage::WRITE:
-					write_image(std::any_cast<int>(args[1]),
+		dispatch[IVoodooImage::WRITE] = [this](std::vector<std::any> args) -> std::any
+		{
+			write_image(std::any_cast<int>(args[1]),
 						std::any_cast<int>(args[2]),
 						std::any_cast<int>(args[3]),
 						std::any_cast<const void*>(args[4]));
-					break;
-				case IVoodooImage::LOAD:
-					//std::cout << (const char*)std::any_cast<const void*>(args[2]) << std::endl;
-					image.loadFromMemory(std::any_cast<const void*>(args[2]), std::any_cast<int>(args[1]));
-					//image.loadFromFile("bitmap.png");
-					break;
-				}
 
-				return ret;
-			});
+			return 0;
+		};
 
-		server.RegisterInterface(method_id, this);
+		dispatch[IVoodooImage::LOAD] = [this](std::vector<std::any> args) -> std::any
+		{
+			//std::cout << (const char*)std::any_cast<const void*>(args[2]) << std::endl;
+			image.loadFromMemory(std::any_cast<const void*>(args[2]), std::any_cast<int>(args[1]));
+			//image.loadFromFile("bitmap.png");
+
+			return 0;
+		};
 	}
 
-	~IVoodooImage_Server()
+	virtual std::function<std::any(std::vector<std::any>)> Lookup(IVoodooImage::Method method) const
 	{
-		server.UnregisterInterface(method_id);
-		server.Unregister(method_id);
-	}
-
-	Voodoo::ID GetMethodID() const
-	{
-		return method_id;
+		return dispatch[method];
 	}
 
 	sf::Image& GetImage()
@@ -338,47 +337,23 @@ private:
 	}
 };
 
-class IVoodooTexture_Server
+class IVoodooTexture_Server : public Voodoo::InterfaceServer<IVoodooTexture>
 {
 private:
-	Voodoo::Server& server;
-	Voodoo::ID method_id;
+	std::array<std::function<std::any(std::vector<std::any>)>, IVoodooTexture::_NUM_METHODS> dispatch;
 	sf::Texture texture;
 
 public:
 	IVoodooTexture_Server(Voodoo::Server& server, IVoodooImage_Server* image)
 		:
-		server(server)
+		InterfaceServer(server)
 	{
 		texture.loadFromImage(image->GetImage());
-
-		method_id = server.Register([&server, this](std::vector<std::any> args)
-			{
-				std::any ret = 0;
-
-				int method = std::any_cast<int>(args[0]);
-
-				switch (method) {
-				case IVoodooTexture::RELEASE:
-					delete this;
-					break;
-				}
-
-				return ret;
-			});
-
-		server.RegisterInterface(method_id, this);
 	}
 
-	~IVoodooTexture_Server()
+	virtual std::function<std::any(std::vector<std::any>)> Lookup(IVoodooTexture::Method method) const
 	{
-		server.UnregisterInterface(method_id);
-		server.Unregister(method_id);
-	}
-
-	Voodoo::ID GetMethodID() const
-	{
-		return method_id;
+		return dispatch[method];
 	}
 
 	sf::Texture& GetTexture()
@@ -387,50 +362,30 @@ public:
 	}
 };
 
-class IVoodooFont_Server
+class IVoodooFont_Server : public Voodoo::InterfaceServer<IVoodooFont>
 {
 private:
-	Voodoo::Server& server;
-	Voodoo::ID method_id;
+	std::array<std::function<std::any(std::vector<std::any>)>, IVoodooFont::_NUM_METHODS> dispatch;
 	sf::Font font;
 
 public:
 	IVoodooFont_Server(Voodoo::Server& server)
 		:
-		server(server)
+		InterfaceServer(server)
 	{
-		method_id = server.Register([&server, this](std::vector<std::any> args)
-			{
-				std::any ret = 0;
+		dispatch[IVoodooFont::LOAD] = [this](std::vector<std::any> args) -> std::any
+		{
+			//std::cout << (const char*)std::any_cast<const void*>(args[2]) << std::endl;
+			//font.loadFromMemory(std::any_cast<const void*>(args[2]), std::any_cast<int>(args[1]));
+			font.loadFromFile("FreeSans.ttf");
 
-				int method = std::any_cast<int>(args[0]);
-
-				switch (method) {
-				case IVoodooFont::RELEASE:
-					delete this;
-					break;
-				case IVoodooFont::LOAD:
-					//std::cout << (const char*)std::any_cast<const void*>(args[2]) << std::endl;
-					//font.loadFromMemory(std::any_cast<const void*>(args[2]), std::any_cast<int>(args[1]));
-					font.loadFromFile("FreeSans.ttf");
-					break;
-				}
-
-				return ret;
-			});
-
-		server.RegisterInterface(method_id, this);
+			return 0;
+		};
 	}
 
-	~IVoodooFont_Server()
+	virtual std::function<std::any(std::vector<std::any>)> Lookup(IVoodooFont::Method method) const
 	{
-		server.UnregisterInterface(method_id);
-		server.Unregister(method_id);
-	}
-
-	Voodoo::ID GetMethodID() const
-	{
-		return method_id;
+		return dispatch[method];
 	}
 
 	sf::Font& GetFont()
@@ -440,82 +395,90 @@ public:
 };
 
 
-class IVoodooGraphics_Server
+class IVoodooGraphics_Server : public Voodoo::InterfaceServer<IVoodooGraphics>
 {
 private:
-	Voodoo::Server& server;
-	Voodoo::ID method_id;
+	std::array<std::function<std::any(std::vector<std::any>)>, IVoodooGraphics::_NUM_METHODS> dispatch;
 	sf::RenderWindow window;
 
 public:
 	IVoodooGraphics_Server(Voodoo::Server& server)
 		:
-		server(server),
+		InterfaceServer(server),
 		window(sf::VideoMode(1024, 768), "Voodoo Graphics")
 	{
-		method_id = server.Register([&server, this](std::vector<std::any> args)
-			{
-				std::any ret = 0;
+		dispatch[IVoodooGraphics::FILL_RECTANGLE] = [this](std::vector<std::any> args) -> std::any
+		{
+			fill_rectangle(args);
 
-				int method = std::any_cast<int>(args[0]);
+			return 0;
+		};
 
-				switch (method) {
-				case IVoodooGraphics::RELEASE:
-					delete this;
-					break;
-				case IVoodooGraphics::FILL_RECTANGLE:
-					fill_rectangle(args);
-					break;
-				case IVoodooGraphics::DRAW_SPRITE:
-					draw_sprite(args);
-					break;
-				case IVoodooGraphics::DRAW_SPRITE_SCALED:
-					draw_sprite_scaled(args);
-					break;
-				case IVoodooGraphics::TEXTURE_TRIANGLE:
-					texture_triangle(args);
-					break;
-				case IVoodooGraphics::DRAW_TEXT:
-					draw_text(args);
-					break;
-				case IVoodooGraphics::FLIP_DISPLAY:
-					flip_display();
-					break;
-				case IVoodooGraphics::CREATE_IMAGE: {
-					auto image = new IVoodooImage_Server(server, std::any_cast<int>(args[1]), std::any_cast<int>(args[2]));
+		dispatch[IVoodooGraphics::DRAW_SPRITE] = [this](std::vector<std::any> args) -> std::any
+		{
+			draw_sprite(args);
 
-					ret = image->GetMethodID();
-					break;
-				}
-				case IVoodooGraphics::CREATE_TEXTURE: {
-					auto texture = new IVoodooTexture_Server(server, (IVoodooImage_Server*)server.LookupInterface(std::any_cast<Voodoo::ID>(args[1])));
+			return 0;
+		};
 
-					ret = texture->GetMethodID();
-					break;
-				}
-				case IVoodooGraphics::CREATE_FONT: {
-					auto font = new IVoodooFont_Server(server);
+		dispatch[IVoodooGraphics::DRAW_SPRITE_SCALED] = [this](std::vector<std::any> args) -> std::any
+		{
+			draw_sprite_scaled(args);
 
-					ret = font->GetMethodID();
-					break;
-				}
-				case IVoodooGraphics::GET_EVENT:
-					ret = get_event();
-					break;
-				}
+			return 0;
+		};
 
-				return ret;
-			});
+		dispatch[IVoodooGraphics::TEXTURE_TRIANGLE] = [this](std::vector<std::any> args) -> std::any
+		{
+			texture_triangle(args);
+
+			return 0;
+		};
+
+		dispatch[IVoodooGraphics::DRAW_TEXT] = [this](std::vector<std::any> args) -> std::any
+		{
+			draw_text(args);
+
+			return 0;
+		};
+
+		dispatch[IVoodooGraphics::FLIP_DISPLAY] = [this](std::vector<std::any> args) -> std::any
+		{
+			flip_display();
+
+			return 0;
+		};
+
+		dispatch[IVoodooGraphics::CREATE_IMAGE] = [this,&server](std::vector<std::any> args) -> std::any
+		{
+			auto image = new IVoodooImage_Server(server, std::any_cast<int>(args[1]), std::any_cast<int>(args[2]));
+
+			return image->GetMethodID();
+		};
+
+		dispatch[IVoodooGraphics::CREATE_TEXTURE] = [this,&server](std::vector<std::any> args) -> std::any
+		{
+			auto texture = new IVoodooTexture_Server(server, (IVoodooImage_Server*)server.LookupInterface(std::any_cast<Voodoo::ID>(args[1])));
+
+			return texture->GetMethodID();
+		};
+
+		dispatch[IVoodooGraphics::CREATE_FONT] = [this,&server](std::vector<std::any> args) -> std::any
+		{
+			auto font = new IVoodooFont_Server(server);
+
+			return font->GetMethodID();
+		};
+
+		dispatch[IVoodooGraphics::GET_EVENT] = [this](std::vector<std::any> args) -> std::any
+		{
+			return get_event();
+		};
 	}
 
-	~IVoodooGraphics_Server()
+	virtual std::function<std::any(std::vector<std::any>)> Lookup(IVoodooGraphics::Method method) const
 	{
-		server.Unregister(method_id);
-	}
-
-	Voodoo::ID GetMethodID() const
-	{
-		return method_id;
+		return dispatch[method];
 	}
 
 private:
@@ -690,7 +653,7 @@ int main()
 	VoodooTest::Setup setup(server, client);
 
 
-	Voodoo::ID graphics_id = 1;	// In this case we know the ID that is used onb the server to register
+	Voodoo::ID graphics_id = 1;	// In this case we know the ID that is used on the server to register
 
 	std::unique_ptr<std::thread> server_loop;
 
