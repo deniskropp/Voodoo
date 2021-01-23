@@ -35,9 +35,15 @@ sf::Packet& operator <<(sf::Packet& packet, const ID& id);
 sf::Packet& operator >>(sf::Packet& packet, ID& id);
 
 
+/*
+ * Packet class holding our value type definition
+ */
 class Packet
 {
 public:
+	/*
+	 * This defines the type of value for packet data
+	 */
 	typedef enum {
 		ID,
 		INT8,
@@ -57,6 +63,11 @@ public:
 
 
 namespace {
+	/*
+	 * Template function for data being appended to a packet
+	 * 
+	 * Specializations will write type and value accordingly
+	 */
 	template <typename T>
 	static void put_arg(sf::Packet& packet, T arg);
 
@@ -146,6 +157,9 @@ namespace {
 }
 
 
+/*
+ * Base class for client and server classes
+ */
 class Host
 {
 private:
@@ -156,25 +170,46 @@ private:
 public:
 	Host();
 
+	/*
+	 * Generate a new ID for usage as method, interface or cleanup handler ID
+	 */
 	ID MakeID();
 
+	/*
+	 * Register method for incoming calls. Generates a new ID using MakeID.
+	 */
 	ID Register(std::function<std::any(std::vector<std::any>)> handler);
 	void Unregister(ID id);
 
+	/*
+	 * Register interface for later lookup as a resource being passed to a method.
+	 */
 	void RegisterInterface(ID id, void* _interface);
 	void UnregisterInterface(ID id);
 	void* LookupInterface(ID id);
 
+	/*
+	 * Handle incoming call based on method ID.
+	 */
 	std::any Handle(ID id, std::vector<std::any> args);
 
 protected:
+	/*
+	 * Append data to a packet.
+	 */
 	void any_to_packet(std::any value, sf::Packet& packet);
 
+	/*
+	 * Get data from a packet.
+	 */
 	void get_values(sf::Packet& packet, std::vector<std::any>& values, size_t readStart = 0);
 
 };
 
 
+/*
+ * Server class for running the service on a TCP socket.
+ */
 class Server : public Host
 {
 private:
@@ -193,22 +228,44 @@ public:
 	Server();
 	~Server() noexcept(false);
 
+	/*
+	 * Put server socket in listening mode and accept incoming connections in a thread.
+	 */
 	void Listen(int port = 5000);
 
+	/*
+	 * Handle incoming calls on any connection.
+	 */
 	void Run();
+
+	/*
+	 * Stop accepting new connections.
+	 */
 	void Stop();
 
+	/*
+	 * Register cleanup handler for the current client being handled.
+	 */
 	void PushCleanup(ID cleanup_id, CleanupHandler handler);
 	void RemoveCleanup(ID cleanup_id);
 
 private:
+	/*
+	 * Run cleanup handlers for the specified socket.
+	 */
 	void cleanup(sf::TcpSocket* socket);
 
 private:
+	/*
+	 * Handle request (incoming call) and fill packet for reply.
+	 */
 	void dispatch(sf::Packet& request, sf::Packet& reply);
 };
 
 
+/*
+ * Client class for using the service via TCP socket.
+ */
 class Client : public Host
 {
 private:
@@ -217,8 +274,14 @@ private:
 public:
 	Client();
 
+	/*
+	 * Connect to server specified by host and port number.
+	 */
 	void Connect(std::string host = "127.0.0.1", int port = 5000);
 	
+	/*
+	 * Make a call to the server and return the reply as a vector.
+	 */
 	template <typename... Args>
 	std::vector<std::any> Call(ID method_id, Args&&... args)
 	{
@@ -226,11 +289,17 @@ public:
 
 		request << method_id;
 
+		/*
+		 * Append all arguments to the request packet.
+		 */
 		(put_arg(request, std::forward<Args>(args)), ...);
 
 		socket.send(request);
 
 
+		/*
+		 * Receive and parse the reply packet.
+		 */
 		sf::Packet reply;
 
 		socket.receive(reply);
@@ -242,7 +311,9 @@ public:
 		return result;
 	}
 
-
+	/*
+	 * Make a call to the server (with data buffer) and return the reply as a vector.
+	 */
 	template <typename... Args>
 	std::vector<std::any> Call2(ID method_id, const void* ptr, size_t length, Args&&... args)
 	{
@@ -250,14 +321,23 @@ public:
 
 		request << method_id;
 
+		/*
+		 * Append all arguments to the request packet.
+		 */
 		(put_arg(request, std::forward<Args>(args)), ...);
 
+		/*
+		 * Append data buffer to the request packet.
+		 */
 		request << Packet::DATA;
 		request.append(ptr, length);
 
 		socket.send(request);
 
 
+		/*
+		 * Receive and parse the reply packet.
+		 */
 		sf::Packet reply;
 
 		socket.receive(reply);
@@ -272,6 +352,9 @@ public:
 };
 
 
+/*
+ * Interface helper on client side.
+ */
 class InterfaceClient
 {
 protected:
@@ -292,6 +375,9 @@ public:
 };
 
 
+/*
+ * Interface helper on server side.
+ */
 template <typename IFace>
 class InterfaceServer
 {
@@ -308,12 +394,18 @@ protected:
 			{
 				typename IFace::Method method = (typename IFace::Method)(std::any_cast<int>(args[0]));
 
+				/*
+				 * Common handler for releasing the interface.
+				 */
 				if (method == IFace::RELEASE) {
 					server.RemoveCleanup(method_id);
 					delete this;
 					return 0;
 				}
 
+				/*
+				 * Specific handlers for interface API.
+				 */
 				std::function<std::any(std::vector<std::any>)> handler = Lookup(method);
 
 				return handler(args);
@@ -332,6 +424,9 @@ protected:
 		server.Unregister(method_id);
 	}
 
+	/*
+	 * This method has to be implemented by each server side interface class for handling incoming calls.
+	 */
 	virtual std::function<std::any(std::vector<std::any>)> Lookup(typename IFace::Method method) const = 0;
 
 public:
