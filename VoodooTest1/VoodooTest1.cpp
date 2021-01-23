@@ -94,8 +94,8 @@ public:
 			sf::Int64 current = get_current_time();
 
 			time_offset =
-				std::any_cast<unsigned int>(args[1]) * 60 * 60 +
-				std::any_cast<unsigned int>(args[2]) * 60 +
+				std::any_cast<unsigned int>(args[1]) * 60LL * 60LL +
+				std::any_cast<unsigned int>(args[2]) * 60LL +
 				std::any_cast<unsigned int>(args[3]);
 			time_offset -= current;
 
@@ -120,7 +120,7 @@ private:
 		//std::cout << "wMinute " << local.wMinute << std::endl;
 		//std::cout << "wSecond " << local.wSecond << std::endl;
 
-		return local.wHour * 60 * 60 + local.wMinute * 60 + local.wSecond;
+		return local.wHour * 60LL * 60LL + local.wMinute * 60LL + local.wSecond;
 #else
 		struct timeval tv;
 
