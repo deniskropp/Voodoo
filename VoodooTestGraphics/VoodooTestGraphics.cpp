@@ -706,14 +706,25 @@ int main()
 
 		bool windowClosed = false;
 
+		sf::Clock clock;
+		int       frames = 0;
+		char      fps[10] = "";
+
 		while (!windowClosed) {
+			if (clock.getElapsedTime().asSeconds() >= 2) {
+				snprintf( fps, 10, "%4.1f FPS", frames / clock.restart().asSeconds() );
+				frames = 0;
+			}
+
+			frames++;
+
 			graphics->FillRectangle(sf::Vector2f(100, 100), sf::Vector2f(400, 300), sf::Color(255, 0, 0, 255));
 			graphics->FillRectangle(sf::Vector2f(300, 150), sf::Vector2f(400, 300), sf::Color(0, 0, 255, 255));
 			graphics->FillRectangle(sf::Vector2f(150, 300), sf::Vector2f(400, 300), sf::Color(100, 100, 100, 255));
 
-			graphics->DrawSprite(sf::Vector2f(210, 210), texture);
-			graphics->DrawSprite(sf::Vector2f(400, 300), texture);
-			graphics->DrawSprite(sf::Vector2f(240, 450), texture);
+			graphics->DrawSprite(sf::Vector2f(110 + rand() % 100, 110 + rand() % 100), texture);
+			graphics->DrawSprite(sf::Vector2f(300 + rand() % 100, 200 + rand() % 100), texture);
+			graphics->DrawSprite(sf::Vector2f(140 + rand() % 100, 350 + rand() % 100), texture);
 
 			for (auto p : points)
 				graphics->FillRectangle(p, sf::Vector2f(10, 10), sf::Color(100, 255, 100, 255));
@@ -738,6 +749,8 @@ int main()
 
 			graphics->DrawText(sf::Vector2f(100, 100), font, 23, "Text Example", sf::Color(230, 230, 230, 255));
 			graphics->DrawText(sf::Vector2f(150, 130), font, 30, "Another Text Example", sf::Color(250, 250, 250, 255));
+
+			graphics->DrawText(sf::Vector2f(850, 30), font, 30, fps, sf::Color(250, 50, 50, 255));
 
 			graphics->FlipDisplay();
 
