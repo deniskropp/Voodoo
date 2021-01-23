@@ -292,6 +292,11 @@ Server::~Server() noexcept(false)
 	if (localPort) {
 		listener.close();
 
+		/*
+		 * On Linux this is required to interrupt the blocking accept() call.
+		 * 
+		 * TODO: Replace hack by using non-blocking listener socket.
+		 */
 		sf::TcpSocket* hack = new sf::TcpSocket();
 		hack->connect("127.0.0.1", localPort);
 		delete hack;
@@ -365,6 +370,7 @@ void Server::Run()
 						cleanup(socket);
 
 						clients.erase(it);
+						selector.remove(*socket);
 						break;
 					}
 
