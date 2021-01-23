@@ -23,24 +23,32 @@ bool ID::operator < (const ID& other) const
 
 sf::Packet& operator <<(sf::Packet& packet, const ID& id)
 {
-	return packet << id.value;
+	return packet << *id;
 }
 
 sf::Packet& operator >>(sf::Packet& packet, ID& id)
 {
-	return packet >> id.value;
+	sf::Uint64 v;
+
+	packet >> v;
+
+	id = ID(v);
+
+	return packet;
 }
 
 
 Host::Host()
+	:
+	ids(0)
 {
 }
 
 ID Host::MakeID()
 {
-	ID id(++ids.value);
+	ID id(++ids);
 
-	if (id.value == 0)
+	if (*id == 0)
 		throw std::runtime_error("out of id space");
 
 	return id;

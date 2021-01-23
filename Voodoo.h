@@ -13,12 +13,15 @@
 
 namespace Voodoo {
 
-
+/*
+ * ID class used for methods, interfaces and cleanup handlers
+ */
 class ID
 {
-public:
+private:
 	sf::Uint64 value;
 
+public:
 	ID();
 	ID(sf::Uint64 value);
 
@@ -146,7 +149,7 @@ namespace {
 class Host
 {
 private:
-	ID ids;
+	sf::Uint64 ids;
 	std::map<ID, std::function<std::any(std::vector<std::any>)>> methods;
 	std::map<ID, void*> interfaces;
 
