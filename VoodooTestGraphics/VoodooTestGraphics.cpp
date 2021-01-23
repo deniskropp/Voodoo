@@ -722,9 +722,9 @@ int main()
 			graphics->FillRectangle(sf::Vector2f(300, 150), sf::Vector2f(400, 300), sf::Color(0, 0, 255, 255));
 			graphics->FillRectangle(sf::Vector2f(150, 300), sf::Vector2f(400, 300), sf::Color(100, 100, 100, 255));
 
-			graphics->DrawSprite(sf::Vector2f(110 + rand() % 100, 110 + rand() % 100), texture);
-			graphics->DrawSprite(sf::Vector2f(300 + rand() % 100, 200 + rand() % 100), texture);
-			graphics->DrawSprite(sf::Vector2f(140 + rand() % 100, 350 + rand() % 100), texture);
+			graphics->DrawSprite(sf::Vector2f((float)(110 + rand() % 100), (float)(110 + rand() % 100)), texture);
+			graphics->DrawSprite(sf::Vector2f((float)(300 + rand() % 100), (float)(200 + rand() % 100)), texture);
+			graphics->DrawSprite(sf::Vector2f((float)(140 + rand() % 100), (float)(350 + rand() % 100)), texture);
 
 			for (auto p : points)
 				graphics->FillRectangle(p, sf::Vector2f(10, 10), sf::Color(100, 255, 100, 255));
