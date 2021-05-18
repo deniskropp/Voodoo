@@ -28,6 +28,11 @@ public:
 	sf::Uint64 operator *() const { return value; }
 
 	bool operator < (const ID& other) const;
+
+	operator bool() const
+	{
+		return value != 0;
+	}
 };
 
 
