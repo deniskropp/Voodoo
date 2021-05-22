@@ -1,24 +1,9 @@
+#include <log.hpp>
+
 #include "Voodoo.h"
 
 
 namespace Voodoo {
-
-ID::ID()
-	:
-	value(0)
-{
-}
-
-ID::ID(sf::Uint64 value)
-	:
-	value(value)
-{
-}
-
-bool ID::operator < (const ID& other) const
-{
-	return value < other.value;
-}
 
 
 sf::Packet& operator <<(sf::Packet& packet, const ID& id)
@@ -100,6 +85,13 @@ void* Host::LookupInterface(ID id)
 
 std::any Host::Handle(ID id, std::vector<std::any> args)
 {
+	LOG_DEBUG("Voodoo::Host::Handle([%llu], %zu args)\n", *id, args.size());
+
+#if PARALLEL_F__DEBUG_ENABLED
+	for (size_t n = 0; n < args.size(); n++)
+		LOG_DEBUG("Voodoo::Host::Handle() <-- (%zu) '%s'\n", n, args[n].type().name());
+#endif
+
 	auto it = methods.find(id);
 
 	if (it == methods.end())
@@ -366,21 +358,24 @@ void Server::Run()
 				if (selector.isReady(*socket)) {
 					sf::Packet request, reply;
 
-					if (socket->receive(request) != sf::Socket::Done) {
+					switch (socket->receive(request)) {
+					case sf::Socket::Done:
+						current_client = socket;
+
+						dispatch(request, reply);
+
+						current_client = NULL;
+
+						socket->send(reply);
+						break;
+
+					default:
 						cleanup(socket);
 
 						clients.erase(it);
 						selector.remove(*socket);
 						break;
 					}
-
-					current_client = socket;
-
-					dispatch(request, reply);
-
-					current_client = NULL;
-					
-					socket->send(reply);
 				}
 			}
 
@@ -431,6 +426,9 @@ void Server::dispatch(sf::Packet& request, sf::Packet &reply)
 	ID method_id;
 
 	if (request >> method_id) {
+		LOG_DEBUG("Voodoo::Server::dispatch(%zu, [%llu])\n",
+				  request.getDataSize(), *method_id);
+
 		std::vector<std::any> args;
 
 		get_values(request, args, sizeof(ID));
