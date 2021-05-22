@@ -16,18 +16,26 @@ namespace Voodoo {
 /*
  * ID class used for methods, interfaces and cleanup handlers
  */
-class ID
+class ID	// FIXME: use lli::ID soon
 {
 private:
-	sf::Uint64 value;
+	unsigned long long value;
 
 public:
-	ID();
-	ID(sf::Uint64 value);
+	ID() : value(0) {}
+	ID(unsigned long long value) : value(value) {}
 
-	sf::Uint64 operator *() const { return value; }
+	unsigned long long operator *() const { return value; }
 
-	bool operator < (const ID& other) const;
+	bool operator < (const ID& other) const
+	{
+		return value < other.value;
+	}
+
+	bool operator !=(const ID& other) const
+	{
+		return value != other.value;
+	}
 
 	operator bool() const
 	{
@@ -67,99 +75,6 @@ public:
 };
 
 
-namespace {
-	/*
-	 * Template function for data being appended to a packet
-	 * 
-	 * Specializations will write type and value accordingly
-	 */
-	template <typename T>
-	static void put_arg(sf::Packet& packet, T arg);
-
-	template <>
-	void put_arg(sf::Packet& packet, ID arg)
-	{
-		packet << Packet::ID;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, sf::Int8 arg)
-	{
-		packet << Packet::INT8;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, sf::Uint8 arg)
-	{
-		packet << Packet::UINT8;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, sf::Int16 arg)
-	{
-		packet << Packet::INT16;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, sf::Uint16 arg)
-	{
-		packet << Packet::UINT16;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, sf::Int32 arg)
-	{
-		packet << Packet::INT32;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, sf::Uint32 arg)
-	{
-		packet << Packet::UINT32;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, sf::Int64 arg)
-	{
-		packet << Packet::INT64;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, sf::Uint64 arg)
-	{
-		packet << Packet::UINT64;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, float arg)
-	{
-		packet << Packet::FLOAT32;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, double arg)
-	{
-		packet << Packet::FLOAT64;
-		packet << arg;
-	}
-
-	template <>
-	void put_arg(sf::Packet& packet, std::string arg)
-	{
-		packet << Packet::STRING;
-		packet << arg;
-	}
-}
 
 
 /*
@@ -168,7 +83,7 @@ namespace {
 class Host
 {
 private:
-	sf::Uint64 ids;
+	unsigned long long ids;
 	std::map<ID, std::function<std::any(std::vector<std::any>)>> methods;
 	std::map<ID, void*> interfaces;
 
@@ -200,6 +115,14 @@ public:
 
 protected:
 	/*
+	 * Template function for data being appended to a packet
+	 *
+	 * Specializations will write type and value accordingly
+	 */
+	template <typename T>
+	void put_arg(sf::Packet& packet, T arg);
+
+	/*
 	 * Append data to a packet.
 	 */
 	void any_to_packet(std::any value, sf::Packet& packet);
@@ -210,6 +133,98 @@ protected:
 	void get_values(sf::Packet& packet, std::vector<std::any>& values, size_t readStart = 0);
 
 };
+
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, ID arg)
+{
+	packet << Packet::ID;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, sf::Int8 arg)
+{
+	packet << Packet::INT8;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, sf::Uint8 arg)
+{
+	packet << Packet::UINT8;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, sf::Int16 arg)
+{
+	packet << Packet::INT16;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, sf::Uint16 arg)
+{
+	packet << Packet::UINT16;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, sf::Int32 arg)
+{
+	packet << Packet::INT32;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, sf::Uint32 arg)
+{
+	packet << Packet::UINT32;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, sf::Int64 arg)
+{
+	packet << Packet::INT64;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, sf::Uint64 arg)
+{
+	packet << Packet::UINT64;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, unsigned long arg)	// FIXME: check i386 case
+{
+	packet << Packet::UINT64;
+	packet << (sf::Uint64)arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, float arg)
+{
+	packet << Packet::FLOAT32;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, double arg)
+{
+	packet << Packet::FLOAT64;
+	packet << arg;
+}
+
+template <>
+inline void Host::put_arg(sf::Packet& packet, std::string arg)
+{
+	packet << Packet::STRING;
+	packet << arg;
+}
 
 
 /*
