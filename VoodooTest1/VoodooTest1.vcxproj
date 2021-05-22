@@ -124,7 +124,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\Denis Oliver Kropp\source\repos\deniskropp\SFML\include;C:\Users\Denis Oliver Kropp\source\repos\Voodoo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Denis Oliver Kropp\source\repos\parallel_f;C:\Users\Denis Oliver Kropp\source\repos\deniskropp\SFML\include;C:\Users\Denis Oliver Kropp\source\repos\Voodoo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>

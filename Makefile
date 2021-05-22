@@ -1,8 +1,15 @@
-CXXFLAGS = -std=c++17
+CXXFLAGS = -std=c++17 -O2 -g2 -I. -I../parallel_f
 
 all: Voodoo.o
-	make -C VoodooTest1
-	make -C VoodooTestGraphics
+	$(MAKE) -C VoodooTest1
+	$(MAKE) -C VoodooTestGraphics
+	$(MAKE) -C VoodooTestMsg
 
-Voodoo.o: Voodoo.cpp Voodoo.h
-	g++ -c -oVoodoo.o Voodoo.cpp $(CXXFLAGS) `pkg-config --libs sfml-network`
+Voodoo.o: Voodoo.cpp Voodoo.h ../parallel_f/*.hpp
+	$(CXX) -c -o $@ $< $(CXXFLAGS) `pkg-config --cflags sfml-network`
+
+clean:
+	rm -f Voodoo.o
+	$(MAKE) -C VoodooTest1 clean
+	$(MAKE) -C VoodooTestGraphics clean
+	$(MAKE) -C VoodooTestMsg clean
