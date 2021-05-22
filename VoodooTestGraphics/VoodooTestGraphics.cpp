@@ -3,6 +3,9 @@
 
 #include <SFML/Graphics.hpp>
 
+#include <log.hpp>
+#include <system.hpp>
+
 #include "Voodoo.h"
 #include "VoodooTest.h"
 
@@ -19,6 +22,7 @@ public:
 		DRAW_SPRITE_SCALED,
 		TEXTURE_TRIANGLE,
 		DRAW_TEXT,
+		RENDER_VERTEXARRAY,
 		FLIP_DISPLAY,
 		CREATE_IMAGE,
 		CREATE_TEXTURE,
@@ -76,6 +80,13 @@ public:
 	void DrawText(sf::Vector2f pos, InterfaceClient* font, int characterSize, std::string text, sf::Color color)
 	{
 		client.Call(method_id, (int)DRAW_TEXT, pos.x, pos.y, font->GetMethodID(), characterSize, text, color.r, color.g, color.b, color.a);
+	}
+
+	void RenderVertexArray(const sf::VertexArray& array, InterfaceClient* texture = 0)
+	{
+		client.Call2(method_id, &array[0], array.getVertexCount() * sizeof(array[0]),
+					 (int)RENDER_VERTEXARRAY, array.getVertexCount(), (int)array.getPrimitiveType(),
+					 texture ? texture->GetMethodID() : Voodoo::ID());
 	}
 
 	void FlipDisplay()
@@ -442,6 +453,13 @@ public:
 			return 0;
 		};
 
+		dispatch[IVoodooGraphics::RENDER_VERTEXARRAY] = [this](std::vector<std::any> args) -> std::any
+		{
+			render_vertexarray(args);
+
+			return 0;
+		};
+
 		dispatch[IVoodooGraphics::FLIP_DISPLAY] = [this](std::vector<std::any> args) -> std::any
 		{
 			flip_display();
@@ -591,6 +609,30 @@ private:
 		window.draw(text);
 	}
 
+	void render_vertexarray(std::vector<std::any> args)
+	{
+		auto num = std::any_cast<sf::Uint64>(args[1]);
+		auto type = std::any_cast<int>(args[2]);
+		auto tex = std::any_cast<Voodoo::ID>(args[3]);
+		const sf::Vertex* v = static_cast<const sf::Vertex*>(std::any_cast<const void*>(args[4]));
+
+		sf::RenderStates states = sf::RenderStates::Default;
+
+		if (tex) {
+			IVoodooTexture_Server* texture = (IVoodooTexture_Server*)server.LookupInterface(tex);
+
+			states.texture = &texture->GetTexture();
+		}
+
+		sf::VertexArray arr((sf::PrimitiveType)type, num);
+
+		/* FIXME: can we use memcpy instead? */
+		for (size_t i = 0; i < num; i++)
+			arr[i] = v[i];
+
+		window.draw(arr, states);
+	}
+
 	void flip_display()
 	{
 		window.display();
@@ -647,6 +689,12 @@ private:
 
 int main()
 {
+	parallel_f::system::instance().setDebugLevel("Voodoo::Host", 0);
+	parallel_f::system::instance().setDebugLevel("Voodoo::Server", 0);
+
+	parallel_f::system::instance().setAutoFlush(parallel_f::system::AutoFlush::EndOfLine);
+
+
 	Voodoo::Server server;
 	Voodoo::Client client;
 
@@ -751,6 +799,17 @@ int main()
 			graphics->DrawText(sf::Vector2f(150, 130), font, 30, "Another Text Example", sf::Color(250, 250, 250, 255));
 
 			graphics->DrawText(sf::Vector2f(850, 30), font, 30, fps, sf::Color(250, 50, 50, 255));
+
+
+			sf::VertexArray va(sf::PrimitiveType::TrianglesFan, 7);
+
+			va[0] = sf::Vertex(sf::Vector2f(400.0f, 300.0f), sf::Color(255, 255, 255));
+
+			for (int i = 1; i < 7; i++)
+				va[i] = sf::Vertex(va[0].position + sf::Vector2f(i*50.0f, 300.0f-i*40.0f), sf::Color(i*190, 200-i*30, i*40));
+
+			graphics->RenderVertexArray(va);
+
 
 			graphics->FlipDisplay();
 
